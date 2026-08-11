@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# великі згенеровані артефакти (перегенеровуються скриптами)
+notebooks/outputs/sunrgbd_instances_all.json
+notebooks/outputs/scenes_index.csv
+
+# локальні результати тренування
+runs/
+notebooks/runs/
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+CLAUDE.md
+
+.claude/

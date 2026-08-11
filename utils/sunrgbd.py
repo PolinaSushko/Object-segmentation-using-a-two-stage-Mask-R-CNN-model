@@ -1,15 +1,13 @@
 """
-sunrgbd.py — базові утиліти для роботи з набором даних SUN RGB-D.
+sunrgbd.py — core utilities for working with the SUN RGB-D dataset.
 
-Покриває:
-  * пошук сцен у довільній структурі каталогів SUN RGB-D;
-  * коректне декодування 16-бітних карт глибини (бітовий зсув!);
-  * зчитування внутрішніх параметрів камери (intrinsics);
-  * парсинг 2D-полігональних анотацій з annotation2Dfinal/index.json;
-  * нормалізацію назв класів;
-  * зворотну проєкцію пікселів у 3D (використовується у розділі 3 роботи).
-
-Автор: Поліна Сушко
+Covers:
+  * scene discovery in the arbitrary SUN RGB-D directory layout;
+  * correct decoding of 16-bit depth maps (bit shift!);
+  * reading camera intrinsics;
+  * parsing 2D polygon annotations from annotation2Dfinal/index.json;
+  * class-name normalization;
+  * back-projection of pixels into 3D (used in chapter 3 of the thesis).
 """
 
 from __future__ import annotations
@@ -19,32 +17,43 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
-
 import numpy as np
+from PIL import Image
+import cv2
+from pycocotools import mask as mask_utils
 
-# ---------------------------------------------------------------------------
-# Константи
-# ---------------------------------------------------------------------------
 
-#: Максимальна достовірна дальність сенсорів SUN RGB-D (метри).
-#: Значення понад цю межу вважаються недостовірними і обнуляються.
 MAX_DEPTH_M = 8.0
 
-#: Категорії, які НЕ є екземплярами об'єктів ("stuff", а не "things").
-#: Їх виключаємо з instance-сегментації: вони не мають чітких меж екземплярів.
+# Categories that are NOT object instances ("stuff" rather than "things").
+# Excluded from instance segmentation: they have no well-defined instance
+# boundaries.
 STUFF_CLASSES = {
     "wall", "floor", "ceiling", "room", "background", "unknown",
     "wall decoration", "floor mat", "ceiling light",
 }
 
-#: Приведення синонімів та типових варіантів написання до єдиної назви.
-#: Ключ — нормалізована назва з датасету, значення — канонічна назва.
+# The standard 10-class SUN RGB-D list (used by most detection/segmentation
+# publications on this dataset — keeps results comparable).
+STANDARD_10_CLASSES = [
+    "bed", "chair", "sofa", "table", "desk",
+    "toilet", "dresser", "nightstand", "bookshelf", "bathtub",
+]
+
 SYNONYMS = {
     "chairs": "chair", "office chair": "chair", "armchair": "chair",
     "desk chair": "chair", "swivel chair": "chair",
-    "tables": "table", "desk": "table", "coffee table": "table",
+    "tables": "table", "coffee table": "table",
     "dining table": "table", "side table": "table", "end table": "table",
+    "desks": "desk", "office desk": "desk", "computer desk": "desk",
+    "writing desk": "desk", "study desk": "desk",
+    "beds": "bed", "double bed": "bed", "bunk bed": "bed",
+    "toilets": "toilet", "toilet bowl": "toilet",
+    "bath tub": "bathtub", "bathtubs": "bathtub", "tub": "bathtub",
+    "dressers": "dresser", "chest of drawers": "dresser",
+    "bookcase": "bookshelf",
     "night stand": "nightstand", "bedside table": "nightstand",
+    "night table": "nightstand", "nightstands": "nightstand",
     "monitor": "monitor", "computer monitor": "monitor", "screen": "monitor",
     "tv": "television", "tv screen": "television",
     "garbage bin": "garbage bin", "trash can": "garbage bin",
@@ -62,19 +71,24 @@ SYNONYMS = {
     "computer": "computer", "pc": "computer", "cpu": "computer",
     "keyboard ": "keyboard", "white board": "whiteboard",
     "door ": "door", "doors": "door", "window ": "window", "windows": "window",
+    # frequent typos found in the raw annotations
+    "chiar": "chair", "cabnet": "cabinet", "bathtube": "bathtub",
 }
+
+_SQUASHED_SYNONYMS: dict[str, str] = {}
+for _alias, _canon in SYNONYMS.items():
+    _SQUASHED_SYNONYMS.setdefault(_alias.strip().replace(" ", "").replace("-", ""), _canon)
+for _canon in set(SYNONYMS.values()):
+    _SQUASHED_SYNONYMS.setdefault(_canon.replace(" ", "").replace("-", ""), _canon)
+
+_CANONICAL_NAMES = frozenset(SYNONYMS.values())
 
 _TRAILING_NUM = re.compile(r"[\s_\-#]*\d+\s*$")
 _MULTISPACE = re.compile(r"\s+")
 
-
-# ---------------------------------------------------------------------------
-# Структури даних
-# ---------------------------------------------------------------------------
-
 @dataclass
 class Scene:
-    """Одна сцена (кадр) набору SUN RGB-D."""
+    """A single scene (frame) of the SUN RGB-D dataset."""
 
     scene_dir: Path
     rgb_path: Path
@@ -83,9 +97,9 @@ class Scene:
     annotation_path: Path | None
     sensor: str                 # kv1 / kv2 / xtion / realsense
     collection: str             # NYUdata / b3dodata / sun3ddata / ...
-    rel_key: str                # унікальний ключ сцени відносно кореня
-    group_key: str = ""         # ключ групування для split (див. assign_groups)
-    scene_type: str = ""        # тип приміщення зі scene.txt
+    rel_key: str                # unique scene key relative to the dataset root
+    group_key: str = ""         # grouping key for the split (see assign_groups)
+    scene_type: str = ""        # room type from scene.txt
 
     @property
     def name(self) -> str:
@@ -94,19 +108,15 @@ class Scene:
 
 @dataclass
 class ObjectAnnotation:
-    """Один анотований об'єкт (полігон) у сцені."""
+    """One annotated object (polygon) in a scene."""
 
     raw_name: str
-    name: str                                  # нормалізована назва
+    name: str                                  # normalized name
     polygons: list[list[float]] = field(default_factory=list)  # [x1,y1,x2,y2,...]
 
 
-# ---------------------------------------------------------------------------
-# Пошук сцен
-# ---------------------------------------------------------------------------
-
 def _first_file(directory: Path, patterns: Sequence[str]) -> Path | None:
-    """Повертає перший файл у каталозі, що відповідає одному з шаблонів."""
+    """Returns the first file in the directory matching one of the patterns."""
     if not directory.is_dir():
         return None
     for pattern in patterns:
@@ -117,7 +127,7 @@ def _first_file(directory: Path, patterns: Sequence[str]) -> Path | None:
 
 
 def _infer_sensor_and_collection(rel_parts: Sequence[str]) -> tuple[str, str]:
-    """Визначає сенсор і підколекцію за відносним шляхом сцени."""
+    """Infers the sensor and sub-collection from a scene's relative path."""
     sensors = {"kv1", "kv2", "xtion", "realsense"}
     sensor, collection = "unknown", "unknown"
     for i, part in enumerate(rel_parts):
@@ -132,12 +142,7 @@ def _infer_sensor_and_collection(rel_parts: Sequence[str]) -> tuple[str, str]:
 
 
 def find_scenes(root: Path, require_annotation: bool = True) -> list[Scene]:
-    """Рекурсивно знаходить усі сцени SUN RGB-D під каталогом `root`.
-
-    Сценою вважається каталог, який містить підкаталоги `image/` та `depth/`.
-    Структура SUN RGB-D неоднорідна (різні сенсори — різна вкладеність),
-    тому пошук ведеться за наявністю цих підкаталогів, а не за фіксованим шляхом.
-    """
+    """Recursively finds all SUN RGB-D scenes under `root`."""
     root = Path(root).expanduser().resolve()
     scenes: list[Scene] = []
 
@@ -150,8 +155,6 @@ def find_scenes(root: Path, require_annotation: bool = True) -> list[Scene]:
         if rgb is None:
             continue
 
-        # depth_bfx — покращена (inpainted) карта глибини, використовуємо її
-        # за наявності; інакше — сира depth.
         depth = _first_file(scene_dir / "depth_bfx", ["*.png"])
         depth_source = "depth_bfx"
         if depth is None:
@@ -194,25 +197,14 @@ def find_scenes(root: Path, require_annotation: bool = True) -> list[Scene]:
                 scene_type=scene_type,
             )
         )
-        # позначка, з якого джерела взято глибину, знадобиться в EDA
-        scenes[-1].depth_source = depth_source  # type: ignore[attr-defined]
+        scenes[-1].depth_source = depth_source  
 
     scenes.sort(key=lambda s: s.rel_key)
     return scenes
 
 
 def assign_groups(scenes: Iterable[Scene], flat_threshold: int = 30) -> None:
-    """Проставляє `group_key` для коректного (без витоку) поділу на вибірки.
-
-    Проблема: у частині колекцій (sun3ddata) багато кадрів знято з однієї
-    кімнати підряд — якщо такі кадри потраплять і в train, і в test, оцінка
-    якості буде завищеною. Тому кадри однієї послідовності групуємо разом.
-
-    Евристика: якщо батьківський каталог містить багато сцен (>= flat_threshold),
-    вважаємо його пласкою колекцією незалежних кадрів (напр. NYUdata) і кожна
-    сцена утворює власну групу. Інакше — це послідовність, і групою є батьківський
-    каталог.
-    """
+    """Assigns `group_key` for a leak-free train/val/test split."""
     scenes = list(scenes)
     parent_counts: dict[str, int] = {}
     for s in scenes:
@@ -222,24 +214,13 @@ def assign_groups(scenes: Iterable[Scene], flat_threshold: int = 30) -> None:
     for s in scenes:
         parent = s.scene_dir.parent.as_posix()
         if parent_counts[parent] >= flat_threshold:
-            s.group_key = s.rel_key           # незалежний кадр
+            s.group_key = s.rel_key           # independent frame
         else:
-            s.group_key = parent              # послідовність кадрів
-
-
-# ---------------------------------------------------------------------------
-# Глибина
-# ---------------------------------------------------------------------------
+            s.group_key = parent              # frame sequence
 
 def decode_depth(raw: np.ndarray, max_depth_m: float = MAX_DEPTH_M) -> np.ndarray:
-    """Декодує 16-бітну карту глибини SUN RGB-D у метри.
-
-    УВАГА. Глибина в SUN RGB-D зберігається зі зсувом бітів: три молодші біти
-    перенесено у старші. Без зворотного зсуву карта виглядає як шум.
-    Еквівалент оригінального MATLAB-коду:
-        bitor(bitshift(d, -3), bitshift(d, 13))
-
-    Повертає float32-масив у метрах; недостовірні значення (0 або > max) = 0.
+    """Decodes a 16-bit SUN RGB-D depth map into meters.
+    Returns a float32 array in meters; unreliable values (0 or > max) = 0.
     """
     d = np.asarray(raw).astype(np.uint16)
     high = (d >> 3).astype(np.uint16)
@@ -252,27 +233,18 @@ def decode_depth(raw: np.ndarray, max_depth_m: float = MAX_DEPTH_M) -> np.ndarra
 
 
 def read_depth(path: Path, max_depth_m: float = MAX_DEPTH_M) -> np.ndarray:
-    """Зчитує та декодує карту глибини у метри."""
-    from PIL import Image
-
+    """Reads and decodes a depth map into meters."""   
     with Image.open(path) as img:
         raw = np.array(img)
-    if raw.ndim == 3:                      # трапляються 3-канальні png
+    if raw.ndim == 3:                      # 3-channel PNGs do occur
         raw = raw[..., 0]
     return decode_depth(raw, max_depth_m=max_depth_m)
 
 
 def read_rgb(path: Path) -> np.ndarray:
-    """Зчитує RGB-зображення як uint8-масив (H, W, 3)."""
-    from PIL import Image
-
+    """Reads an RGB image as a uint8 array (H, W, 3)."""
     with Image.open(path) as img:
         return np.array(img.convert("RGB"))
-
-
-# ---------------------------------------------------------------------------
-# Параметри камери
-# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class Intrinsics:
@@ -289,11 +261,7 @@ class Intrinsics:
 
 
 def read_intrinsics(path: Path | None) -> Intrinsics | None:
-    """Зчитує матрицю внутрішніх параметрів камери з intrinsics.txt.
-
-    Файл містить 9 чисел (матриця 3x3). УВАГА: параметри РІЗНІ для різних
-    сенсорів, тому їх не можна задавати константою на весь набір даних.
-    """
+    """Reads the camera intrinsics matrix from intrinsics.txt."""
     if path is None or not Path(path).is_file():
         return None
     try:
@@ -316,15 +284,15 @@ def backproject(
     rgb: np.ndarray | None = None,
     stride: int = 1,
 ) -> tuple[np.ndarray, np.ndarray | None]:
-    """Зворотна проєкція: (u, v, глибина) -> 3D-координати (X, Y, Z).
+    """Back-projection: (u, v, depth) -> 3D coordinates (X, Y, Z).
 
-    Формули класичної pinhole-моделі камери:
+    Classic pinhole camera model:
         Z = depth(v, u)
         X = (u - cx) * Z / fx
         Y = (v - cy) * Z / fy
 
-    Повертає (points Nx3, colors Nx3 або None). Враховуються лише пікселі
-    з достовірною глибиною (> 0) і, за наявності, всередині маски.
+    Returns (points Nx3, colors Nx3 or None). Only pixels with reliable
+    depth (> 0) and, if given, inside the mask are used.
     """
     h, w = depth_m.shape[:2]
     vs, us = np.mgrid[0:h:stride, 0:w:stride]
@@ -350,26 +318,26 @@ def backproject(
     return points, colors
 
 
-# ---------------------------------------------------------------------------
-# Анотації
-# ---------------------------------------------------------------------------
-
 def normalize_name(raw: str) -> str:
-    """Приводить назву класу до канонічного вигляду.
-
-    У SUN RGB-D назви вводили вручну, тому трапляються 'chair', 'Chair ',
-    'chair2', 'chairs'. Без нормалізації один клас розпадається на десятки.
-    """
+    """Normalizes a class name to its canonical form."""
     name = str(raw).strip().lower()
     name = name.replace("_", " ")
-    name = _TRAILING_NUM.sub("", name)          # 'chair 2' -> 'chair'
+    if name and not name[0].isdigit():
+        name = _TRAILING_NUM.sub("", name)
     name = _MULTISPACE.sub(" ", name).strip()
     name = SYNONYMS.get(name, name)
+    if name not in _CANONICAL_NAMES:
+        squashed = name.replace(" ", "").replace("-", "")
+        canon = _SQUASHED_SYNONYMS.get(squashed)
+        if canon is None and squashed.endswith("s"):
+            canon = _SQUASHED_SYNONYMS.get(squashed[:-1])
+        if canon is not None:
+            name = canon
     return name
 
 
 def _coerce_coords(value) -> list[float]:
-    """Координати в index.json бувають числами, рядками або вкладеними списками."""
+    """Coordinates in index.json may be numbers, strings, or nested lists."""
     out: list[float] = []
     if value is None:
         return out
@@ -387,14 +355,14 @@ def _coerce_coords(value) -> list[float]:
 
 
 def load_annotations(path: Path | None) -> list[ObjectAnnotation]:
-    """Парсить annotation2Dfinal/index.json у список об'єктів з полігонами.
+    """Parses annotation2Dfinal/index.json into a list of polygon objects.
 
-    Формат (LabelMe-подібний):
+    Format (LabelMe-like):
         {"objects": [{"name": "chair"}, null, ...],
          "frames":  [{"polygon": [{"object": 0, "x": [...], "y": [...]}, ...]}]}
 
-    Файли подекуди пошкоджені або містять порожні/видалені об'єкти —
-    усі такі випадки пропускаються без винятків.
+    Some files are corrupted or contain empty/deleted objects —
+    all such cases are skipped without raising.
     """
     if path is None or not Path(path).is_file():
         return []
@@ -425,7 +393,7 @@ def load_annotations(path: Path | None) -> list[ObjectAnnotation]:
         if not raw:
             return
         n = min(len(xs), len(ys))
-        if n < 3:                                # полігон має бути хоча б трикутником
+        if n < 3:                               
             return
         flat: list[float] = []
         for i in range(n):
@@ -449,7 +417,6 @@ def load_annotations(path: Path | None) -> list[ObjectAnnotation]:
                     continue
                 _add(obj_idx, _coerce_coords(poly.get("x")), _coerce_coords(poly.get("y")))
 
-    # запасний варіант: полігони, вкладені безпосередньо в objects
     if not collected:
         for idx, obj in enumerate(objects):
             if not isinstance(obj, dict):
@@ -464,13 +431,8 @@ def load_annotations(path: Path | None) -> list[ObjectAnnotation]:
 
     return [collected[k] for k in sorted(collected)]
 
-
-# ---------------------------------------------------------------------------
-# Полігони -> маски / геометрія
-# ---------------------------------------------------------------------------
-
 def clip_polygon(poly: Sequence[float], width: int, height: int) -> list[float]:
-    """Обрізає координати полігона до меж зображення."""
+    """Clips polygon coordinates to the image bounds."""
     pts = np.asarray(poly, dtype=np.float64).reshape(-1, 2)
     pts[:, 0] = np.clip(pts[:, 0], 0, width - 1)
     pts[:, 1] = np.clip(pts[:, 1], 0, height - 1)
@@ -478,9 +440,7 @@ def clip_polygon(poly: Sequence[float], width: int, height: int) -> list[float]:
 
 
 def polygons_to_mask(polygons: Sequence[Sequence[float]], width: int, height: int) -> np.ndarray:
-    """Растеризує набір полігонів в одну бінарну маску (uint8)."""
-    import cv2
-
+    """Rasterizes a set of polygons into a single binary mask (uint8)."""
     mask = np.zeros((height, width), dtype=np.uint8)
     for poly in polygons:
         pts = np.asarray(poly, dtype=np.float64).reshape(-1, 2)
@@ -493,36 +453,19 @@ def polygons_to_mask(polygons: Sequence[Sequence[float]], width: int, height: in
 def _area_via_pycocotools(
     polygons: Sequence[Sequence[float]], width: int, height: int
 ) -> float | None:
-    """Обчислює площу так само, як це робить COCOeval (за наявності pycocotools).
-
-    Це важливо для узгодженості: метрика AP розділяє об'єкти на small/medium/large
-    саме за полем `area`, тому воно має рахуватися тим самим кодом, що й
-    під час оцінювання.
-    """
-    try:
-        from pycocotools import mask as mask_utils
-    except ImportError:
-        return None
+    """Computes the area exactly the way COCOeval does (if pycocotools exists)."""
     try:
         rles = mask_utils.frPyObjects([list(p) for p in polygons], height, width)
         rle = mask_utils.merge(rles)
         return float(mask_utils.area(rle))
-    except Exception:  # noqa: BLE001
+    except Exception:  
         return None
 
 
 def polygons_bbox_area(
     polygons: Sequence[Sequence[float]], width: int, height: int
 ) -> tuple[list[float], float]:
-    """Обчислює COCO-bbox [x, y, w, h] та площу маски в пікселях.
-
-    Площа рахується растеризацією (а не формулою Гаусса), щоб коректно
-    обробити самоперетини та кілька полігонів одного об'єкта. За наявності
-    pycocotools використовується його реалізація — для повної узгодженості
-    з подальшим оцінюванням за метрикою AP.
-    """
-    import cv2
-
+    """Computes the COCO bbox [x, y, w, h] and the mask area in pixels."""
     all_pts = []
     for poly in polygons:
         pts = np.asarray(poly, dtype=np.float64).reshape(-1, 2)
@@ -543,7 +486,6 @@ def polygons_bbox_area(
 
     area = _area_via_pycocotools(polygons, width, height)
     if area is None:
-        # запасний варіант: растеризація в межах обмежувальної рамки
         canvas_w, canvas_h = int(np.ceil(bw)) + 1, int(np.ceil(bh)) + 1
         canvas = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
         for pts in all_pts:
@@ -551,11 +493,6 @@ def polygons_bbox_area(
             cv2.fillPoly(canvas, [np.round(shifted).astype(np.int32)], 1)
         area = float(canvas.sum())
     return [x0, y0, bw, bh], area
-
-
-# ---------------------------------------------------------------------------
-# Допоміжне
-# ---------------------------------------------------------------------------
 
 def iter_batched(items: Sequence, size: int) -> Iterator[Sequence]:
     for i in range(0, len(items), size):
