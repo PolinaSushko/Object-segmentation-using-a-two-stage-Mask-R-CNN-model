@@ -1,0 +1,28 @@
+{
+  "name": "sam_gtboxes_std10",
+  "gt": "notebooks/outputs/splits/instances_test.json",
+  "pred": "notebooks/outputs/predictions/sam_gtboxes_std10_test.json",
+  "n_predictions": 5088,
+  "agnostic": true,
+  "conf_thresh": 0.5,
+  "iou_thresh": 0.5,
+  "coco": {
+    "segm": {
+      "AP": 0.4057,
+      "AP50": 0.7764,
+      "AP75": 0.3645,
+      "APs": 0.2721,
+      "APm": 0.3809,
+      "APl": 0.4574
+    },
+    "bbox": {
+      "AP": 1.0,
+      "AP50": 1.0,
+      "AP75": 1.0,
+      "APs": 1.0,
+      "APm": 1.0,
+      "APl": 1.0
+    }
+  },
+  "mean_matched_iou": 0.7645
+}
