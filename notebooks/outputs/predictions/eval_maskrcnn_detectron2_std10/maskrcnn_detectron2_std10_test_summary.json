@@ -1,0 +1,52 @@
+{
+  "name": "maskrcnn_detectron2_std10_test",
+  "gt": "notebooks/outputs/splits/instances_test.json",
+  "pred": "maskrcnn_detectron2_std10/eval_test/coco_instances_results.json",
+  "n_predictions": 25622,
+  "agnostic": false,
+  "conf_thresh": 0.5,
+  "iou_thresh": 0.5,
+  "coco": {
+    "segm": {
+      "AP": 0.2303,
+      "AP50": 0.3958,
+      "AP75": 0.2443,
+      "APs": 0.0303,
+      "APm": 0.1514,
+      "APl": 0.2962
+    },
+    "bbox": {
+      "AP": 0.2519,
+      "AP50": 0.4026,
+      "AP75": 0.2688,
+      "APs": 0.0388,
+      "APm": 0.1804,
+      "APl": 0.3201
+    }
+  },
+  "per_class_segm_AP": {
+    "bed": 0.2767,
+    "chair": 0.2104,
+    "sofa": 0.2596,
+    "table": 0.2031,
+    "desk": 0.0413,
+    "toilet": 0.6072,
+    "dresser": 0.1706,
+    "nightstand": 0.1427,
+    "bookshelf": 0.1291,
+    "bathtub": 0.2617
+  },
+  "mean_matched_iou": 0.7791,
+  "pr_f1": {
+    "micro": {
+      "precision": 0.4518,
+      "recall": 0.5033,
+      "F1": 0.4762
+    },
+    "macro": {
+      "precision": 0.4512,
+      "recall": 0.4672,
+      "F1": 0.454
+    }
+  }
+}

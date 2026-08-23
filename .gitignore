@@ -24,3 +24,6 @@ CLAUDE.md
 .claude/
 
 PLAN.md
+
+maskrcnn_*/
+yolov8*/

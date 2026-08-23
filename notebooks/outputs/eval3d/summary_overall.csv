@@ -1,0 +1,9 @@
+,median_signed,mean_signed,median_abs,mean_abs
+chamfer_cm,9.97,25.52,9.97,25.52
+centroid_offset_cm,18.13,42.31,18.13,42.31
+dist_err_m,-0.1,-0.31,0.17,0.41
+obb_extent_1_pct_err,-14.68,-12.24,23.44,32.11
+obb_extent_2_pct_err,-7.42,-7.82,15.34,21.65
+obb_extent_3_pct_err,-8.4,-7.3,16.85,26.26
+obb_volume_m3_pct_err,-29.47,-6.32,44.48,63.87
+hull_volume_m3_pct_err,-30.29,-11.72,42.2,59.38

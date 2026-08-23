@@ -1,0 +1,4 @@
+size_bin,chamfer_cm,centroid_offset_cm,abs_obb_volume_m3_pct_err,abs_hull_volume_m3_pct_err,abs_obb_extent_1_pct_err,n_objects
+small,17.38,36.54,59.59,59.34,36.44,1607
+medium,9.34,16.17,40.83,39.52,22.68,1607
+large,6.57,11.7,34.71,32.1,15.52,1607
