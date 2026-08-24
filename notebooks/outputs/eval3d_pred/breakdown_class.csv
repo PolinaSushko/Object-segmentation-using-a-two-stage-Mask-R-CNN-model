@@ -1,0 +1,11 @@
+class,segm_chamfer_cm,full_chamfer_cm,mask_iou,n_objects
+toilet,1.24,5.94,0.89,36
+desk,2.4,8.78,0.72,121
+bathtub,1.36,8.99,0.84,14
+table,2.14,9.7,0.8,620
+chair,1.76,10.45,0.79,1555
+nightstand,0.96,12.24,0.85,34
+sofa,1.37,12.3,0.87,165
+bed,2.26,12.59,0.83,149
+dresser,1.21,19.19,0.87,38
+bookshelf,1.3,24.62,0.83,40

@@ -1,0 +1,4 @@
+iou_bin,segm_chamfer_cm,full_chamfer_cm,n_objects
+IoU 0.5–0.7,4.03,14.09,730
+0.7–0.85,1.92,11.02,1080
+0.85–1.0,1.01,7.8,962

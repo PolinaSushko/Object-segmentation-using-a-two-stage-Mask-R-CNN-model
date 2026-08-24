@@ -1,0 +1,9 @@
+torch
+torchvision
+transformers
+gradio
+plotly
+open3d
+numpy
+pandas
+pillow

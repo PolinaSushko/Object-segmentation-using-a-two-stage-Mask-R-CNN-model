@@ -1,0 +1,8 @@
+,B: pred mask + sensor,B: pred mask + sensor,C: pred mask + mono,C: pred mask + mono
+,median_signed,median_abs,median_signed,median_abs
+chamfer_cm,1.8,1.8,10.41,10.41
+centroid_offset_cm,7.23,7.23,19.88,19.88
+dist_err_m,-0.01,0.04,-0.11,0.17
+obb_extent_1_pct_err,-1.77,9.07,-19.98,27.83
+obb_volume_pct_err,-11.8,29.0,-40.43,54.72
+hull_volume_pct_err,-10.34,28.87,-39.67,53.58
