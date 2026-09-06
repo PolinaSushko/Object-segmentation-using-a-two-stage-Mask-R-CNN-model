@@ -3,7 +3,7 @@
 notebooks/outputs/sunrgbd_instances_all.json
 notebooks/outputs/scenes_index.csv
 
-notebooks/outputs/depth_mono/maps/
+notebooks/outputs/depth_mono/maps*/
 
 runs/
 notebooks/runs/

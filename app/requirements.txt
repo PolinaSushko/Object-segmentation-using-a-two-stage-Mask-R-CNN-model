@@ -4,6 +4,9 @@ transformers
 gradio
 plotly
 open3d
+scipy
 numpy
 pandas
 pillow
+opencv-python-headless
+pycocotools

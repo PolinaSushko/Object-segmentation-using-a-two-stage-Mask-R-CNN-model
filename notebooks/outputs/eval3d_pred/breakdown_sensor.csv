@@ -1,0 +1,5 @@
+sensor,segm_chamfer_cm,mono_oracle_chamfer_cm,mono_global_chamfer_cm,metric_small_scale_chamfer_cm,metric_small_focal_chamfer_cm,metric_base_scale_chamfer_cm,metric_base_focal_chamfer_cm,n_objects
+kv1,0.87,7.2,33.5,14.72,15.26,14.71,13.84,271
+kv2,0.82,9.19,21.56,15.4,20.13,13.6,18.23,1143
+realsense,0.94,10.22,14.93,21.12,12.34,18.55,10.35,302
+xtion,0.86,7.15,22.92,14.54,21.43,11.14,16.27,767
