@@ -1,0 +1,11 @@
+Leak check — splits_min100 (dataset v2)
+images 9900, groups 2304; group size: median 1, p99 50, max 214 (2.2% of images)
+
+OK   groups spanning subsets: 0
+OK   (a) SUN3D scans in >1 subset: 0
+OK   (a) SUN3D sites in >1 subset: 0
+OK   (c) multi-sensor pairs <= 5 s in different subsets: 0
+OK   (d) same-device pairs <= 60 s in different subsets: 0
+OK   (d) test images with a train frame of the same device <= 60 s: 0
+OK   (b-d) timestamped pairs <= 120 s in different subsets: 0
+OK   (e) kv1 near-duplicate pairs in different subsets: 0

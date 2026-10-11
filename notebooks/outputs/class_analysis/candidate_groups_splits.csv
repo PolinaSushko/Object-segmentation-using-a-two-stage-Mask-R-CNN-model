@@ -1,12 +1,12 @@
 group,total,train,val,test,no split,val scenes,test scenes
-"cabinet (+cupboard, file cabinet)",3095,1512,305,384,894,205,243
-pillow (+cushion),2817,1976,387,387,67,181,182
-display (monitor+tv),2011,1302,278,325,106,164,199
-shelf,1847,1151,194,241,261,153,167
-lamp,1666,1145,241,218,62,179,175
-garbage bin (full group),1440,807,168,183,282,134,151
-curtain,1029,658,155,142,74,126,113
-mirror,824,459,110,103,152,97,82
-whiteboard (+blackboard),770,532,114,96,28,96,82
-sink,635,196,55,51,333,52,48
-fridge,356,155,33,43,125,32,43
+"cabinet (+cupboard, file cabinet)",3250,1500,321,321,1108,181,193
+pillow (+cushion),2876,1953,419,419,85,160,174
+display (monitor+tv),2127,1390,295,298,144,141,146
+shelf,1923,1051,228,223,421,149,129
+lamp,1724,1143,245,245,91,146,188
+garbage bin (full group),1560,818,175,175,392,115,133
+curtain,1031,751,95,89,96,85,69
+mirror,825,445,86,98,196,74,87
+whiteboard (+blackboard),771,483,114,112,62,88,96
+sink,646,157,33,33,423,32,31
+fridge,358,134,20,32,172,19,31

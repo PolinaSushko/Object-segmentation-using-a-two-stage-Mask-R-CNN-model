@@ -1,4 +1,4 @@
-area,n_instances,share_%
-small,23395,18.5
-medium,58481,46.2
-large,44728,35.3
+area,all,std10,all_share_%,std10_share_%
+small,24207,3438,19.3,10.3
+medium,57110,12761,45.6,38.1
+large,43922,17284,35.1,51.6

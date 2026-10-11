@@ -4,7 +4,8 @@ Packs the prepared SUN RGB-D subset for training in Google Colab.
 Takes one or more split directories (each with instances_train/val/test.json)
 and bundles into a single zip:
   * <splits_dir_name>/*.json — COCO annotations for every class config
-    (paths inside are already relative);
+    (paths inside are already relative) and its dataset_version.json (the
+    training notebooks check the dataset version before training);
   * the union of all RGB images and depth maps referenced by the splits,
     preserving the relative directory structure.
 """
@@ -43,6 +44,13 @@ def main() -> int:
             for im in coco["images"]:
                 files.add(im["file_name"])
                 files.add(im["depth_file"])
+        version_path = split_dir / "dataset_version.json"
+        if not version_path.is_file():
+            raise SystemExit(f"Not found: {version_path} (regenerate the split with "
+                             f"utils/prepare_dataset.py)")
+        version = json.loads(version_path.read_text(encoding="utf-8"))
+        print(f"[*] {split_dir.name}: dataset {version['version']}, "
+              f"{version['classes']} classes, images {version['n_images']}")
 
     missing = [f for f in sorted(files) if not (root / f).is_file()]
     if missing:
@@ -55,6 +63,8 @@ def main() -> int:
             for subset in SUBSETS:
                 sp = split_dir / f"instances_{subset}.json"
                 zf.write(sp, f"{split_dir.name}/instances_{subset}.json")
+            zf.write(split_dir / "dataset_version.json",
+                     f"{split_dir.name}/dataset_version.json")
         for i, rel in enumerate(sorted(files), 1):
             if i % 2000 == 0 or i == len(files):
                 print(f"    {i}/{len(files)}", end="\r", flush=True)

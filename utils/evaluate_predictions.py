@@ -33,8 +33,6 @@ import json
 from pathlib import Path
 
 import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -196,6 +194,7 @@ def plot_confusion(conf: np.ndarray, cat_names: list[str], iou_thresh: float,
 
 
 def main() -> int:
+    matplotlib.use("Agg")      # headless CLI; importing the module keeps inline plots
     p = argparse.ArgumentParser(
         description="Unified evaluation of COCO-format instance predictions")
     p.add_argument("--gt", type=Path, required=True, help="COCO GT (instances_*.json)")

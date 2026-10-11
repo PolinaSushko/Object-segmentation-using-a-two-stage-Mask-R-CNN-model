@@ -1,9 +1,9 @@
 ,median_signed,mean_signed,median_abs,mean_abs
-chamfer_cm,8.63,25.81,8.63,25.81
-centroid_offset_cm,13.32,33.67,13.32,33.67
-dist_err_m,-0.05,-0.22,0.13,0.33
-obb_extent_1_pct_err,-6.1,-7.23,11.86,17.92
-obb_extent_2_pct_err,-7.71,-8.54,14.29,19.99
-obb_extent_3_pct_err,-16.01,-13.2,24.89,34.29
-obb_volume_m3_pct_err,-30.25,-18.03,42.11,51.33
-hull_volume_m3_pct_err,-32.56,-26.47,40.41,47.12
+chamfer_cm,9.6,28.11,9.6,28.11
+centroid_offset_cm,14.54,36.66,14.54,36.66
+dist_err_m,-0.06,-0.25,0.14,0.36
+obb_extent_1_pct_err,-6.81,-7.82,12.39,18.9
+obb_extent_2_pct_err,-8.35,-8.82,15.09,21.03
+obb_extent_3_pct_err,-19.34,-17.87,26.85,35.2
+obb_volume_m3_pct_err,-34.53,-19.75,44.06,55.2
+hull_volume_m3_pct_err,-37.25,-28.36,44.84,51.64

@@ -1,0 +1,31 @@
+{
+  "version": "v2",
+  "created": "2026-10-11",
+  "config": "splits",
+  "classes": 10,
+  "class_names": [
+    "bed",
+    "chair",
+    "sofa",
+    "table",
+    "desk",
+    "toilet",
+    "dresser",
+    "nightstand",
+    "bookshelf",
+    "bathtub"
+  ],
+  "n_images": {
+    "train": 5983,
+    "val": 1284,
+    "test": 1287
+  },
+  "n_instances": {
+    "train": 23390,
+    "val": 5050,
+    "test": 5043
+  },
+  "seed": 42,
+  "split_source": "fresh stratified split",
+  "notes": "proper polygon clipping, recovered names, leak-free grouping (sun3d site, multi-sensor captures, kv2 sessions, kv1 near-duplicates), stratified group split"
+}

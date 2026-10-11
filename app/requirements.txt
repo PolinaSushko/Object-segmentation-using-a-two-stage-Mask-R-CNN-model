@@ -1,12 +1,20 @@
-torch
-torchvision
-transformers
-gradio
-plotly
-open3d
-scipy
-numpy
-pandas
-pillow
-opencv-python-headless
-pycocotools
+# Versions = conda env `env_for_tests` (Python 3.11), where the demo was verified.
+# CPU-only PyTorch (Linux / Hugging Face Spaces): the extra index serves the
+# "+cpu" wheels (~200 MB instead of the multi-GB CUDA build); pip prefers
+# 2.12.1+cpu over the PyPI 2.12.1 for the same "==" pin. On macOS the PyPI
+# wheels are used (MPS works out of the box).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.12.1
+torchvision==0.27.1
+transformers==5.15.0
+huggingface_hub==1.22.0
+gradio==6.25.0
+plotly==6.9.0
+open3d==0.19.0
+scipy==1.17.1
+numpy==2.4.6
+pandas==3.0.5
+pillow==12.3.0
+# headless build for servers; the local env has opencv-python of the same version
+opencv-python-headless==4.13.0.92
+pycocotools==2.0.11

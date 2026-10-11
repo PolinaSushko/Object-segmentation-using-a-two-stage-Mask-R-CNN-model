@@ -1,9 +1,16 @@
 """
 sam_gt_boxes.py — zero-shot SAM evaluation with ground-truth boxes as prompts.
 
-Evaluate the output with the shared evaluator in class-agnostic mode:
+Protocol: one prompt per GT box, single-mask output (multimask_output=False),
+the standard box-prompt setting of the SAM paper. `--multimask` instead takes
+the best of SAM's 3 hypotheses by its predicted IoU (an "oracle-free" but
+non-standard variant — report it as such).
+
+Evaluate the output with the shared evaluator in class-agnostic mode and with
+--no-bbox: the predicted bbox IS the GT prompt box, so bbox AP would be a
+trivial 1.0:
     python utils/evaluate_predictions.py --gt .../instances_test.json \
-        --pred sam_predictions.json --name sam_vit_b --agnostic --out ...
+        --pred sam_predictions.json --name sam_vit_b --agnostic --no-bbox --out ...
 
 Example:
     python sam_gt_boxes.py \
@@ -55,6 +62,9 @@ def main() -> int:
                    help="auto (default) | cuda | mps | cpu")
     p.add_argument("--limit", type=int, default=None,
                    help="process only the first N images (smoke test)")
+    p.add_argument("--multimask", action="store_true",
+                   help="take the best of 3 masks by predicted IoU instead of "
+                        "the standard single-mask box-prompt protocol")
     args = p.parse_args()
 
     device = pick_device(args.device)
@@ -87,14 +97,14 @@ def main() -> int:
                       if torch.is_tensor(v) else v)
                   for k, v in inputs.items()}
         with torch.no_grad():
-            outputs = model(**inputs, multimask_output=True)
+            outputs = model(**inputs, multimask_output=args.multimask)
 
-        # [n_boxes, 3, H, W] at the original resolution
+        # [n_boxes, 3 (or 1), H, W] at the original resolution
         masks = processor.image_processor.post_process_masks(
             outputs.pred_masks.cpu(),
             inputs["original_sizes"].cpu(),
             inputs["reshaped_input_sizes"].cpu())[0]
-        iou_scores = outputs.iou_scores.cpu()[0]          # [n_boxes, 3]
+        iou_scores = outputs.iou_scores.cpu()[0]          # [n_boxes, 3 (or 1)]
         best = iou_scores.argmax(dim=-1)                  # best hypothesis per box
 
         for bi, a in enumerate(anns):
@@ -118,7 +128,10 @@ def main() -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(predictions), encoding="utf-8")
-    print(f"[✓] {len(predictions)} predictions -> {args.out}")
+    print(f"[✓] {len(predictions)} predictions -> {args.out} "
+          f"({'best of 3 masks' if args.multimask else 'single-mask protocol'})")
+    print("    Evaluate with --agnostic --no-bbox: the bbox is the GT prompt box, "
+          "so bbox AP is trivially 1.0")
     return 0
 
 
