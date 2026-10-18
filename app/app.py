@@ -43,9 +43,13 @@ def get_pipeline() -> P.DemoPipeline:
     print("Loading models...")
     t0 = time.time()
     pipe = P.DemoPipeline()
+    meta = pipe.segmenter.meta
+    val_ap = meta.get("best_ap")
+    val_ap = f"{val_ap:.4f}" if isinstance(val_ap, (int, float)) else "n/a"
     print(f"Models ready on {pipe.device} ({time.time() - t0:.1f} s); weights: "
-          f"{pipe.weights_path.name} ({pipe.segmenter.meta.get('arch')}, "
-          f"{len(pipe.class_names)} classes); depth backend: {pipe.depth_cfg['label']}")
+          f"{pipe.weights_path.name} ({meta.get('arch')}, {len(pipe.class_names)} "
+          f"classes, source {meta.get('source', 'n/a')}, val mask AP {val_ap}); "
+          f"depth backend: {pipe.depth_cfg['label']}")
     return pipe
 
 
@@ -259,7 +263,8 @@ with gr.Blocks(title="RGB → 3D object analysis") as demo:
         "# From a single RGB photo to 3D object characteristics\n"
         "Mask R-CNN (SUN RGB-D, 10 indoor classes) → Depth Anything V2 "
         "(monocular depth, no sensor) → per-object point clouds "
-        "(Open3D) → spatial characteristics.")
+        "(Open3D) → spatial characteristics.\n\n"
+        f"Segmentation: {P.MODEL_DESCRIPTION}. Depth: {P.DEPTH_BACKENDS[P.DEPTH_BACKEND]['label']}.")
     with gr.Row():
         with gr.Column(scale=1):
             # image_mode=None: the original file reaches the pipeline unchanged

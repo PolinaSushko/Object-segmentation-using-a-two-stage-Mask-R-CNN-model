@@ -8,8 +8,12 @@ demo loads with `torch.load(..., weights_only=True)`:
      "meta": {"arch": ..., "num_classes": ..., "source": ..., ...}}
 
 Usage:
-    python app/export_weights.py ~/Downloads/maskrcnn_torchvision_std10/best.pth \
-        app/weights/maskrcnn_std10.pt [--arch maskrcnn_resnet50_fpn_v2] [--fp16]
+    python app/export_weights.py ~/Downloads/v2_maskrcnn_torchvision_std10/best.pth \
+        app/weights/maskrcnn_std10.pt [--arch maskrcnn_resnet50_fpn_v2] [--fp16] \
+        [--note "dataset v2, run v2_maskrcnn_torchvision_std10"]
+
+`best_ap` in the meta is the validation mask AP of the exported epoch
+(`best_epoch`), as recorded by notebook 02.
 
 Only run it on checkpoints you trust: reading the training checkpoint
 unpickles arbitrary objects (weights_only=False).
@@ -43,6 +47,9 @@ def main() -> None:
     ap.add_argument("dst", type=Path, help="output weights file (.pt)")
     ap.add_argument("--arch", default="maskrcnn_resnet50_fpn_v2",
                     help="torchvision builder the weights belong to")
+    ap.add_argument("--note", default=None,
+                    help="free-text provenance stored in meta['note'] "
+                         "(e.g. dataset version, run name)")
     ap.add_argument("--fp16", action="store_true",
                     help="store float tensors in half precision (half the size; "
                          "the app casts back to float32)")
@@ -70,11 +77,13 @@ def main() -> None:
         raise SystemExit(f"{len(names)} class names for {num_classes - 1} classes")
 
     meta = {"arch": args.arch, "num_classes": num_classes,
-            "source": args.src.name,
+            "source": f"{args.src.parent.name}/{args.src.name}",   # run folder / file
             "source_sha1": hashlib.sha1(args.src.read_bytes()).hexdigest(),
             "dtype": "float16" if args.fp16 else "float32"}
+    if args.note:
+        meta["note"] = args.note
     if isinstance(ck, dict):
-        for key in ("epoch", "best_ap"):
+        for key in ("epoch", "best_epoch", "best_ap"):
             if key in ck:
                 meta[key] = _plain(ck[key])
 

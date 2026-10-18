@@ -1,6 +1,6 @@
 {
-  "kv1_classroom.jpg":       {"fx": 518.9, "fy": 519.5, "cx": 284.6, "cy": 208.7},
-  "kv2_library.jpg":         {"fx": 529.5, "fy": 529.5, "cx": 365.0, "cy": 265.0},
-  "realsense_rest_space.jpg":{"fx": 693.7, "fy": 693.7, "cx": 360.4, "cy": 264.8},
-  "xtion_classroom.jpg":     {"fx": 570.3, "fy": 570.3, "cx": 310.0, "cy": 225.0}
+  "kv1_dining_room.jpg": {"fx": 520.532, "fy": 520.7444, "cx": 277.9258, "cy": 215.115},
+  "kv2_furniture_store.jpg": {"fx": 529.5, "fy": 529.5, "cx": 365.0, "cy": 265.0},
+  "xtion_classroom.jpg": {"fx": 570.3422, "fy": 570.3422, "cx": 291.0, "cy": 231.0},
+  "realsense_rest_space.jpg": {"fx": 693.7447, "fy": 693.7447, "cx": 360.4319, "cy": 264.75}
 }

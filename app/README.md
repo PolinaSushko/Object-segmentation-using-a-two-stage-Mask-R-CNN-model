@@ -20,13 +20,35 @@ Depth Anything V2 monocular depth (no sensor) → per-object point clouds
 
 ```bash
 # once: training checkpoint (model + optimizer, 367 MB) -> weights-only file (176 MB)
-python app/export_weights.py ~/Downloads/maskrcnn_torchvision_std10/best.pth \
-    app/weights/maskrcnn_std10.pt
+python app/export_weights.py ~/Downloads/v2_maskrcnn_torchvision_std10/best.pth \
+    app/weights/maskrcnn_std10.pt \
+    --note "dataset v2 (2026-10-11), std10; val mask AP 0.2459, test mask AP 0.2609"
 python app/app.py              # finds app/weights/maskrcnn_std10.pt automatically
 ```
 
 The app imports `utils/` (the shared point-cloud pipeline of the thesis) from
 the repository root; in a Space it is a copy next to `app.py` (see below).
+
+## Segmentation model
+
+`weights/maskrcnn_std10.pt` is **Mask R-CNN ResNet-50-FPN v2 (torchvision)
+trained on SUN RGB-D dataset v2**, standard 10 classes (run
+`v2_maskrcnn_torchvision_std10`, notebook 02, best epoch 10). Its `meta`
+records the source checkpoint, its SHA-1 and the validation mask AP (0.2459).
+
+Why torchvision and not the thesis's selected model: the model selected by
+validation mask AP on the 10 standard classes is Mask R-CNN Detectron2
+R101-FPN trained on the 20 min400 classes (val 0.2570, test 0.2665 on the
+std10 classes). The torchvision model is statistically equivalent on the test
+split — Δ test mask AP 0.006 (0.2609), paired bootstrap p = 0.54 (notebook 10)
+— and it keeps the demo pure PyTorch: `pip install torch torchvision` on a CPU
+Space, no Detectron2 build. The end-to-end 3D numbers below are notebook 08's,
+measured with the selected model's predictions; segmentation error costs under
+1 cm Chamfer there, so for an equivalent segmenter they describe the demo as
+well.
+
+The bundled `examples/` are four test-split scenes (one per sensor); how they
+were chosen is documented in `examples/README.md`.
 
 ## Configuration (environment variables)
 
@@ -67,6 +89,17 @@ the Space settings, or commit them under `weights/` with Git LFS.
   file content), else the EXIF 35 mm-equivalent focal length, else an
   explicit Kinect-like assumption (fx = 0.925 × long side). The status line
   states which one was used.
-* Thesis evaluation of the default backend (notebook 08, predicted masks):
-  median Chamfer 15.8 cm, OBB volume bias −7%, median |volume error| 53%;
-  usable range ≈ 3.5 m — farther objects are marked ≈ (approximate).
+* Thesis evaluation per depth backend (notebook 08, dataset v2, test split,
+  predicted masks of the selected Mask R-CNN, 2580 matched objects; medians
+  against GT mask + sensor depth):
+
+  | `DEPTH_BACKEND` | median Chamfer | OBB volume bias | median \|volume error\| |
+  |---|---|---|---|
+  | `metric_scaled` (default) | 15.2 cm | −12% | 49% |
+  | `metric_focal` | 20.4 cm | −28% | 58% |
+  | `relative_global` | 25.0 cm | −61% | 69% |
+
+  For reference: the same masks on sensor depth give 0.8 cm, i.e. the error
+  is almost entirely the monocular depth. Usable range ≈ 3.5 m (median Chamfer
+  of the default backend 12 cm below 2.5 m, 19 cm at 2.5–3.5 m, 28–49 cm
+  beyond) — farther objects are marked ≈ (approximate).
