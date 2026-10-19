@@ -1,0 +1,29 @@
+,,n_objects,median_dist_m,chamfer_cm,centroid_offset_cm,abs_dist_err_m,obb_volume_pct_err,abs_obb_volume_pct_err
+all 20 classes,B: pred + sensor,3586.0,2.3,0.78,2.13,0.01,-1.95,17.57
+all 20 classes,"C: pred + mono, per-image (oracle)",3586.0,2.3,8.83,14.1,0.12,-45.67,57.58
+all 20 classes,"C: pred + mono, global lstsq_disp",3586.0,2.3,27.97,42.31,0.41,-63.2,71.04
+all 20 classes,C: pred + metric Small + global scale,3586.0,2.3,15.82,26.02,0.25,-14.12,49.4
+all 20 classes,C: pred + metric Small + focal scale,3586.0,2.3,21.74,35.57,0.34,-30.29,58.71
+all 20 classes,C: pred + metric Base + global scale,3586.0,2.3,13.61,22.12,0.21,-15.32,46.32
+all 20 classes,C: pred + metric Base + focal scale,3586.0,2.3,17.92,29.3,0.28,-32.17,54.72
+std10 classes,B: pred + sensor,2621.0,2.22,0.81,2.44,0.01,-2.37,17.53
+std10 classes,"C: pred + mono, per-image (oracle)",2621.0,2.22,8.81,14.25,0.12,-42.3,55.66
+std10 classes,"C: pred + mono, global lstsq_disp",2621.0,2.22,25.03,40.48,0.39,-60.72,68.76
+std10 classes,C: pred + metric Small + global scale,2621.0,2.22,15.12,25.75,0.24,-12.01,49.17
+std10 classes,C: pred + metric Small + focal scale,2621.0,2.22,20.41,35.25,0.34,-27.86,58.08
+std10 classes,C: pred + metric Base + global scale,2621.0,2.22,13.26,22.4,0.21,-10.52,45.02
+std10 classes,C: pred + metric Base + focal scale,2621.0,2.22,16.73,28.94,0.28,-28.3,53.16
+10 extra classes,B: pred + sensor,965.0,2.57,0.72,1.65,0.01,-1.03,17.72
+10 extra classes,"C: pred + mono, per-image (oracle)",965.0,2.57,8.91,13.44,0.12,-54.35,62.07
+10 extra classes,"C: pred + mono, global lstsq_disp",965.0,2.57,37.38,47.73,0.47,-70.78,78.74
+10 extra classes,C: pred + metric Small + global scale,965.0,2.57,18.82,26.9,0.26,-22.01,49.73
+10 extra classes,C: pred + metric Small + focal scale,965.0,2.57,27.04,36.7,0.36,-37.35,60.17
+10 extra classes,C: pred + metric Base + global scale,965.0,2.57,14.54,21.67,0.21,-28.08,50.29
+10 extra classes,C: pred + metric Base + focal scale,965.0,2.57,21.51,29.99,0.29,-43.61,58.54
+std10 run (sections above),B: pred + sensor,2580.0,2.22,0.82,2.47,0.01,-2.25,17.58
+std10 run (sections above),"C: pred + mono, per-image (oracle)",2580.0,2.22,8.85,14.34,0.12,-42.66,55.95
+std10 run (sections above),"C: pred + mono, global lstsq_disp",2580.0,2.22,24.97,40.39,0.39,-60.9,68.8
+std10 run (sections above),C: pred + metric Small + global scale,2580.0,2.22,15.15,25.78,0.24,-11.81,49.4
+std10 run (sections above),C: pred + metric Small + focal scale,2580.0,2.22,20.35,35.05,0.33,-27.85,58.24
+std10 run (sections above),C: pred + metric Base + global scale,2580.0,2.22,13.25,22.41,0.21,-10.41,44.88
+std10 run (sections above),C: pred + metric Base + focal scale,2580.0,2.22,16.69,28.96,0.28,-28.2,53.09

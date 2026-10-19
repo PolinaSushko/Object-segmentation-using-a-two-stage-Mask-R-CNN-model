@@ -19,7 +19,8 @@ RGB ──► Mask R-CNN ──► instance masks ─┐
 |---|---|---|---|---|---|
 | **Mask R-CNN, Detectron2 R101-FPN, trained on 20 classes²** (selected by val AP) | **0.257** | **0.267** [0.246, 0.302] | 0.427 | 0.49 / 0.46 / 0.46 | 224 |
 | Mask R-CNN, Detectron2 R101-FPN | 0.248 | 0.263 [0.243, 0.297] | **0.431** | 0.46 / 0.50 / 0.47 | — |
-| Mask R-CNN, torchvision R50-FPN v2 (demo model) | 0.245 | 0.261 [0.242, 0.294] | 0.426 | 0.37 / 0.51 / 0.42 | 231 |
+| Mask R-CNN, torchvision R50-FPN v2, trained on 20 classes² (demo model) | 0.242 | 0.266 [0.247, 0.300] | 0.430 | 0.42 / 0.49 / 0.45 | 230 |
+| Mask R-CNN, torchvision R50-FPN v2 | 0.245 | 0.261 [0.242, 0.294] | 0.426 | 0.37 / 0.51 / 0.42 | 231 |
 | Mask R-CNN, Detectron2 R50-FPN | 0.244 | 0.247 [0.226, 0.283] | 0.405 | 0.47 / 0.46 / 0.46 | 183 |
 | YOLOv8s-seg | 0.241 | 0.243 [0.222, 0.277] | 0.391 | 0.63 / 0.33 / 0.42 | 22 |
 | SAM ViT-B + GT-box prompts¹ | — | 0.398 (class-agnostic) | 0.753 | — | — |
@@ -30,14 +31,16 @@ bound of mask quality given perfect detection.
 classes, ids 1–10 shared) and scored on the 10 standard classes after its predictions
 of the extra classes are dropped. The class configuration is treated as a
 hyperparameter, so the model is selected by the same rule (validation mask AP on the
-10-class validation split). On its own 20 classes it reaches test mask AP 0.232
-(val 0.224).
+10-class validation split). On their own 20 classes the two models reach test mask
+AP 0.232 (Detectron2 R101, val 0.224) and 0.226 (torchvision, val 0.212).
 
 Paired bootstrap over test images (notebook 10): selected Mask R-CNN − YOLOv8s-seg
 ΔAP = +0.024 [0.002, 0.045], p = 0.03; ΔAP50 = +0.037 [0.010, 0.064], p = 0.006.
 Among the Mask R-CNN variants no test difference is significant: 20 vs 10 training
-classes (same R101) ΔAP = +0.004, p = 0.66; Detectron2 vs torchvision ΔAP = +0.002,
-p = 0.76; R101 vs R50 ΔAP = +0.016, p = 0.09 (significant only for AP50).
+classes ΔAP = +0.004, p = 0.66 (Detectron2 R101) and +0.005, p = 0.40 (torchvision);
+Detectron2 vs torchvision ΔAP = +0.0002, p = 0.98 (both trained on 20 classes;
++0.006, p = 0.21 on the 20 classes) and +0.002, p = 0.76 (both on 10); R101 vs R50
+ΔAP = +0.016, p = 0.09 (significant only for AP50).
 Mask R-CNN finds more objects (macro recall 0.46 vs 0.33); YOLO is ~10× faster and
 draws slightly tighter masks (mean matched IoU 0.815 vs 0.790).
 
@@ -50,12 +53,17 @@ absolute AP is limited by annotation completeness of SUN RGB-D.
 Monocular depth for the demo (notebook 06): Depth Anything V2 Metric-Indoor Small
 with one global scale constant — AbsRel 0.233, δ<1.25 0.766 against sensor depth.
 
-End-to-end 3D with the selected model's masks (notebook 08, 2,580 matched test
-objects, median Chamfer distance to the GT-mask + sensor-depth reference): 0.8 cm
+End-to-end 3D with the selected model's masks (notebook 08, 10 standard classes, 2,580
+matched test objects, median Chamfer distance to the GT-mask + sensor-depth reference): 0.8 cm
 with sensor depth — segmentation error is almost free in 3D; with monocular depth
 15.2 cm for the demo backend (metric Small + global scale, OBB volume bias −12%),
 13.2 cm for metric Base, 25.0 cm for the relative model with a global alignment and
-8.9 cm for the per-image oracle alignment.
+8.9 cm for the per-image oracle alignment. Over all 20 classes of the model
+(min400 test split, 3,586 objects), the demo backend gives 15.8 cm, and 18.8 cm on
+the 10 extra classes (Base: 13.6 / 14.5 cm). Segmentation and the oracle
+alignment are as accurate there as on the furniture (0.7 / 8.9 cm). The gap comes
+from sensor-free depth: the extra objects lie farther away, and the Small depth
+model is weak on displays, keyboards and lamps.
 
 ## Repository layout
 
@@ -75,7 +83,7 @@ with sensor depth — segmentation error is almost free in 3D; with monocular de
 | `notebooks/05_pointclouds_sensor.ipynb` | masks + sensor depth → point clouds → 3D object metrics |
 | `notebooks/06_monocular_depth.ipynb` | monocular depth (Depth Anything V2): scale alignment methods, metric models |
 | `notebooks/07_eval3d_mono_vs_sensor.ipynb` | 3D reconstruction from monocular vs sensor depth |
-| `notebooks/08_eval3d_pred_masks.ipynb` | end-to-end 3D with predicted masks and six depth backends |
+| `notebooks/08_eval3d_pred_masks.ipynb` | end-to-end 3D with predicted masks and six depth backends, on the 10 standard classes and on all 20 |
 | `notebooks/09_error_analysis.ipynb` | error analysis of the selected model |
 | `notebooks/10_model_comparison.ipynb` | final comparison table, significance tests, training curves, qualitative examples |
 | `notebooks/outputs/` | generated splits, tables and figures |
@@ -138,9 +146,12 @@ python utils/evaluate_predictions.py --gt notebooks/outputs/splits/instances_tes
 ## Web demo
 
 ```bash
-python app/export_weights.py <best.pth> app/weights/maskrcnn_std10.pt   # model-only weights
+python app/export_weights.py <best.pth> app/weights/maskrcnn_min400.pt   # model-only weights
 python app/app.py
 ```
+
+The demo runs the torchvision Mask R-CNN trained on 20 classes (equal to the
+selected Detectron2 model on the test set, pure PyTorch on a CPU host).
 
 Upload an RGB photo (or pick one of the bundled test-split examples): the demo
 shows instance masks, an interactive 3D point cloud with oriented bounding boxes

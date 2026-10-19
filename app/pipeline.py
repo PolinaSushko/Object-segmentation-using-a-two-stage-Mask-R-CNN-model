@@ -24,11 +24,12 @@ them; otherwise large photos re-introduce the depth "curtains" the filter
 removes (e.g. a chair's OBB volume x22 at 4x resolution).
 
 Segmentation model: Mask R-CNN ResNet-50-FPN v2 (torchvision) trained on SUN
-RGB-D dataset v2, standard 10 classes (run `v2_maskrcnn_torchvision_std10`,
-notebook 02): val mask AP 0.246, test mask AP 0.261. The thesis selects, by
-validation mask AP on the 10 standard classes, the Detectron2 R101-FPN model
-trained on the 20 min400 classes (val 0.257, test 0.267); the test difference
-(0.006, paired bootstrap p = 0.54) is within the evaluation noise, and the
+RGB-D dataset v2, 20 min400 classes (run `v2_maskrcnn_torchvision_min400`,
+notebook 02): val / test mask AP 0.212 / 0.226 on the 20 classes; on the 10
+standard classes test mask AP 0.266. The thesis selects, by validation mask AP
+on the 10 standard classes, the Detectron2 R101-FPN model trained on the same
+20 classes (val 0.257, test 0.267); on the 10-class test set the two are equal
+(difference 0.0002, paired bootstrap p = 0.98; notebook 10), and the
 torchvision model keeps the demo pure PyTorch (no Detectron2 build on CPU
 Spaces) — see README.md.
 
@@ -36,7 +37,7 @@ Weights: the segmentation model is loaded from a weights-only file written by
 `export_weights.py` (state_dict + class names + meta, `torch.load(...,
 weights_only=True)`), found via env MASKRCNN_CKPT (local path), env
 MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME, Hugging Face Hub) or
-`weights/maskrcnn_std10.pt` next to this file — see `resolve_weights()`.
+`weights/maskrcnn_min400.pt` next to this file — see `resolve_weights()`.
 """
 from __future__ import annotations
 
@@ -97,61 +98,65 @@ SEGMENTATION_ARCHS = {
 DEFAULT_ARCH = "maskrcnn_resnet50_fpn_v2"
 # shown in the UI header (the weights file's meta records source run / val AP)
 MODEL_DESCRIPTION = ("Mask R-CNN ResNet-50-FPN v2 (torchvision), SUN RGB-D dataset v2, "
-                     "10 classes; test mask AP 0.261")
+                     "20 classes; test mask AP 0.226 (20 classes), 0.266 on the 10 "
+                     "standard classes")
 
 WEIGHTS_FORMAT = "vkr-maskrcnn-weights/1"
-DEFAULT_WEIGHTS_FILE = APP_DIR / "weights" / "maskrcnn_std10.pt"
-DEFAULT_HF_FILENAME = "maskrcnn_std10.pt"
+DEFAULT_WEIGHTS_FILE = APP_DIR / "weights" / "maskrcnn_min400.pt"
+DEFAULT_HF_FILENAME = "maskrcnn_min400.pt"
 
 # duplicate suppression across classes (torchvision NMS is per class, so the
-# same object may come out as e.g. "table" and "desk"). On std10 train+val
-# ground truth only 5 of 90,942 pairs of objects in the same image overlap with
-# mask IoU >= 0.7 across classes (31 within a class), so such pairs among the
-# predictions are near-certainly duplicates; same-class fragments lying >= 90%
-# inside a higher-scoring mask of the same class are dropped too (108 GT pairs,
-# 0.1%, mostly nested annotation artefacts).
+# same object may come out as e.g. "table" and "desk", or "shelf" and
+# "bookshelf"). On the min400 train+val ground truth of dataset v2 only 84 of
+# 165,776 pairs of objects in the same image overlap with mask IoU >= 0.7
+# across classes (46 of them pillow/sofa; std10: 5 of 97,833) and 51 within a
+# class, so such pairs among the predictions are near-certainly duplicates;
+# same-class fragments lying >= 90% inside a higher-scoring mask of the same
+# class are dropped too (128 GT pairs, 0.08%, mostly nested chair / cabinet /
+# shelf annotations).
 DUP_MASK_IOU = 0.7
 DUP_SAME_CLASS_CONTAINMENT = 0.9
 
 # depth backends (constants fitted on 200 sensor-stratified validation images,
 # notebook 06, dataset v2; test AbsRel / delta1: relative_global 0.274 / 0.52,
 # metric_scaled 0.233 / 0.77, metric_focal 0.259 / 0.68). `thesis_3d` is the
-# end-to-end result with predicted masks (notebook 08, dataset v2, test split,
-# 2580 matched objects of the selected Mask R-CNN; medians vs GT mask + sensor
-# depth).
+# end-to-end result with predicted masks over all 20 classes the demo shows
+# (notebook 08, dataset v2, min400 test split, 3586 matched objects of the
+# selected Mask R-CNN; medians vs GT mask + sensor depth; on the 10 standard
+# classes alone: 15.2 / 20.4 / 25.0 cm).
 DEPTH_BACKENDS = {
     "metric_scaled": {
         "model_id": "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
         # depth = scale * raw_depth
         "scale": 0.8573,
         "label": "Depth Anything V2 Metric-Indoor Small + global scale",
-        "thesis_3d": "median Chamfer 15.2 cm, OBB volume bias −12%, "
-                     "median |volume error| 49%",
+        "thesis_3d": "median Chamfer 15.8 cm (18.8 cm on the 10 non-standard "
+                     "classes), OBB volume bias −14%, median |volume error| 49%",
     },
     "metric_focal": {
         "model_id": "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
         # depth = (fx / long_side) / F0 * raw_depth
         "F0": 1.0278,
         "label": "Depth Anything V2 Metric-Indoor Small + focal-aware scale",
-        "thesis_3d": "median Chamfer 20.4 cm, OBB volume bias −28%, "
-                     "median |volume error| 58%",
+        "thesis_3d": "median Chamfer 21.7 cm (27.0 cm on the 10 non-standard "
+                     "classes), OBB volume bias −30%, median |volume error| 59%",
     },
     "relative_global": {
         "model_id": "depth-anything/Depth-Anything-V2-Small-hf",
         # depth = 1 / (s * raw_disparity + t)
         "s": 0.0894, "t": 0.2743,
         "label": "Depth Anything V2 Small (relative) + global disparity alignment",
-        "thesis_3d": "median Chamfer 25.0 cm, OBB volume bias −61%, "
-                     "median |volume error| 69%",
+        "thesis_3d": "median Chamfer 28.0 cm (37.4 cm on the 10 non-standard "
+                     "classes), OBB volume bias −63%, median |volume error| 71%",
     },
 }
 # default = the best sensor-free backend of notebooks 06/08 at the same latency as
-# the relative model (metric Base is better still, but 2.5x slower)
+# the relative model (metric Base is better still, but 2.4x slower)
 DEPTH_BACKEND = os.environ.get("DEPTH_BACKEND", "metric_scaled")
 
-# monocular 3D is usable up to ~3.5 m (notebook 08, dataset v2, default backend:
-# median Chamfer 12 cm below 2.5 m, 19 cm at 2.5-3.5 m, 28-49 cm beyond); farther
-# objects are flagged
+# monocular 3D is usable up to ~3.5 m (notebook 08, dataset v2, default backend,
+# all 20 classes: median Chamfer 13 cm below 2.5 m, 20 cm at 2.5-3.5 m, 28-49 cm
+# beyond); farther objects are flagged
 RELIABLE_RANGE_M = 3.5
 
 MAX_DEPTH_M = pc.MAX_DEPTH_M
@@ -380,7 +385,7 @@ def resolve_intrinsics(path: str | Path, loaded: LoadedImage,
 def resolve_weights() -> Path:
     """Local path of the segmentation weights: env MASKRCNN_CKPT, else
     env MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME) downloaded from the
-    Hugging Face Hub, else weights/maskrcnn_std10.pt next to this file."""
+    Hugging Face Hub, else weights/maskrcnn_min400.pt next to this file."""
     local = os.environ.get("MASKRCNN_CKPT")
     if local:
         p = Path(local).expanduser()

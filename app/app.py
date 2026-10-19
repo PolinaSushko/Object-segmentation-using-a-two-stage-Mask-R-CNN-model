@@ -4,7 +4,7 @@ Run locally (repository root):  python app/app.py
 Environment (see README.md and pipeline.py):
   MASKRCNN_CKPT         local weights file written by export_weights.py
   MASKRCNN_HF_REPO      ... or a Hugging Face model repo holding it
-  MASKRCNN_HF_FILENAME  file name in that repo (default maskrcnn_std10.pt)
+  MASKRCNN_HF_FILENAME  file name in that repo (default maskrcnn_min400.pt)
   DEPTH_BACKEND         metric_scaled (default) | metric_focal | relative_global
   TORCH_NUM_THREADS     CPU threads (default: CPUs available to the process)
 """
@@ -261,7 +261,7 @@ def analyse(image_path: str | None, conf: float, show_context: bool, color_mode:
 with gr.Blocks(title="RGB → 3D object analysis") as demo:
     gr.Markdown(
         "# From a single RGB photo to 3D object characteristics\n"
-        "Mask R-CNN (SUN RGB-D, 10 indoor classes) → Depth Anything V2 "
+        "Mask R-CNN (SUN RGB-D, 20 indoor classes) → Depth Anything V2 "
         "(monocular depth, no sensor) → per-object point clouds "
         "(Open3D) → spatial characteristics.\n\n"
         f"Segmentation: {P.MODEL_DESCRIPTION}. Depth: {P.DEPTH_BACKENDS[P.DEPTH_BACKEND]['label']}.")
