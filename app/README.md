@@ -19,11 +19,19 @@ Depth Anything V2 monocular depth (no sensor) → per-object point clouds
 ## Run locally (repository layout)
 
 ```bash
-# once: training checkpoint (model + optimizer, 367 MB) -> weights-only file (176 MB)
+pip install -r app/requirements.txt   # Python 3.11
+python app/app.py                     # http://127.0.0.1:7860
+```
+
+On the first start the weights file `weights/maskrcnn_min400.pt` (176 MB) is
+downloaded from the repository's GitHub release `v1.0` and checked against its
+SHA-256. Depth Anything V2 comes from the Hugging Face Hub. To build the weights
+file yourself from a training checkpoint (model + optimizer, 367 MB):
+
+```bash
 python app/export_weights.py ~/Downloads/v2_maskrcnn_torchvision_min400/best.pth \
     app/weights/maskrcnn_min400.pt \
     --note "dataset v2, run v2_maskrcnn_torchvision_min400 (20 classes, min400)"
-python app/app.py              # finds app/weights/maskrcnn_min400.pt automatically
 ```
 
 The app imports `utils/` (the shared point-cloud pipeline of the thesis) from
@@ -72,11 +80,13 @@ were chosen is documented in `examples/README.md`.
 | `MASKRCNN_CKPT` | local weights file written by `export_weights.py` |
 | `MASKRCNN_HF_REPO` | otherwise: Hugging Face model repo holding that file (downloaded with `hf_hub_download`; `HF_TOKEN` for a private repo) |
 | `MASKRCNN_HF_FILENAME` | file name in that repo (default `maskrcnn_min400.pt`) |
+| `MASKRCNN_URL` | otherwise, when `weights/maskrcnn_min400.pt` is missing: address to download it from (default: the `v1.0` release asset of the repository, SHA-256 checked) |
 | `DEPTH_BACKEND` | `metric_scaled` (default) \| `metric_focal` \| `relative_global` |
 | `TORCH_NUM_THREADS` | CPU threads (default: CPUs available to the container) |
 
 Without `MASKRCNN_CKPT` / `MASKRCNN_HF_REPO` the app looks for
-`weights/maskrcnn_min400.pt` next to `app.py`. The weights are loaded with
+`weights/maskrcnn_min400.pt` next to `app.py` and downloads it there when it is
+missing. The weights are loaded with
 `torch.load(..., weights_only=True)`; a raw training checkpoint is rejected
 with the conversion command.
 

@@ -37,7 +37,8 @@ Weights: the segmentation model is loaded from a weights-only file written by
 `export_weights.py` (state_dict + class names + meta, `torch.load(...,
 weights_only=True)`), found via env MASKRCNN_CKPT (local path), env
 MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME, Hugging Face Hub) or
-`weights/maskrcnn_min400.pt` next to this file — see `resolve_weights()`.
+`weights/maskrcnn_min400.pt` next to this file, which is downloaded from the
+GitHub release of the repository on the first run — see `resolve_weights()`.
 """
 from __future__ import annotations
 
@@ -104,6 +105,13 @@ MODEL_DESCRIPTION = ("Mask R-CNN ResNet-50-FPN v2 (torchvision), SUN RGB-D datas
 WEIGHTS_FORMAT = "vkr-maskrcnn-weights/1"
 DEFAULT_WEIGHTS_FILE = APP_DIR / "weights" / "maskrcnn_min400.pt"
 DEFAULT_HF_FILENAME = "maskrcnn_min400.pt"
+# public copy of DEFAULT_WEIGHTS_FILE attached to the GitHub release of the
+# repository; downloaded into DEFAULT_WEIGHTS_FILE on the first run when no
+# other source is configured (env MASKRCNN_URL overrides the address)
+DEFAULT_WEIGHTS_URL = ("https://github.com/PolinaSushko/"
+                       "Object-segmentation-using-a-two-stage-Mask-R-CNN-model/"
+                       "releases/download/v1.0/maskrcnn_min400.pt")
+DEFAULT_WEIGHTS_SHA256 = "78437b1791cd3c85838765d0ece8e950e0cb76953f8a0cdb1586a4c5c5b0037a"
 
 # duplicate suppression across classes (torchvision NMS is per class, so the
 # same object may come out as e.g. "table" and "desk", or "shelf" and
@@ -382,10 +390,21 @@ def resolve_intrinsics(path: str | Path, loaded: LoadedImage,
 
 # segmentation model wrapper (the only place that knows the model specifics)
 
+def download_weights(url: str, dst: Path, sha256: str | None = None) -> Path:
+    """Downloads a weights file to `dst` (atomically, with a progress bar) and
+    checks its SHA-256 when given."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading the segmentation weights from {url} ...", flush=True)
+    torch.hub.download_url_to_file(url, str(dst), hash_prefix=sha256, progress=True)
+    return dst
+
+
 def resolve_weights() -> Path:
     """Local path of the segmentation weights: env MASKRCNN_CKPT, else
     env MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME) downloaded from the
-    Hugging Face Hub, else weights/maskrcnn_min400.pt next to this file."""
+    Hugging Face Hub, else weights/maskrcnn_min400.pt next to this file,
+    else that file downloaded from env MASKRCNN_URL or the GitHub release
+    (DEFAULT_WEIGHTS_URL, checked against DEFAULT_WEIGHTS_SHA256)."""
     local = os.environ.get("MASKRCNN_CKPT")
     if local:
         p = Path(local).expanduser()
@@ -407,12 +426,19 @@ def resolve_weights() -> Path:
                 f"MASKRCNN_HF_FILENAME and, for a private repo, HF_TOKEN.") from e
     if DEFAULT_WEIGHTS_FILE.is_file():
         return DEFAULT_WEIGHTS_FILE
-    raise FileNotFoundError(
-        "No segmentation weights found. Either set MASKRCNN_CKPT to a local "
-        "weights file, or MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME, default "
-        f"{DEFAULT_HF_FILENAME!r}) to a Hugging Face model repo, or place the "
-        f"file at {DEFAULT_WEIGHTS_FILE}. Create it from a training checkpoint "
-        "with: python app/export_weights.py <best.pth> <out.pt>")
+    url = os.environ.get("MASKRCNN_URL", DEFAULT_WEIGHTS_URL)
+    try:
+        return download_weights(url, DEFAULT_WEIGHTS_FILE,
+                                DEFAULT_WEIGHTS_SHA256 if url == DEFAULT_WEIGHTS_URL else None)
+    except Exception as e:
+        raise FileNotFoundError(
+            f"No segmentation weights found, and downloading them from {url} failed "
+            f"({type(e).__name__}: {e}). Either download that file manually to "
+            f"{DEFAULT_WEIGHTS_FILE}, or set MASKRCNN_CKPT to a local weights file, "
+            "or MASKRCNN_HF_REPO (+ MASKRCNN_HF_FILENAME, default "
+            f"{DEFAULT_HF_FILENAME!r}) to a Hugging Face model repo. A weights file is "
+            "created from a training checkpoint with: "
+            "python app/export_weights.py <best.pth> <out.pt>") from e
 
 
 def _class_names(raw, num_classes: int) -> list[str]:
